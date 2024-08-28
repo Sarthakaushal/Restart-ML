@@ -16,11 +16,18 @@ class Conf:
 class Fashion_MNIST(VisionDataTemplate):
     def __init__(self, 
                 local_dir: str = Conf.Root_data_dir, 
-                batch_size: int=Conf.Batch_size
+                transforms = ToTensor()
                 ) -> None:
         self.name = 'FashionMNIST'
         self.root_dir = local_dir
+        self.transforms = transforms
         self.batch_size = Conf.Batch_size
+        self.labels = [x for x in range(10)]
+        self.label_desc = {
+            0 :'T-shirt/top', 1: 'Trouser', 2: "Pullover", 3: "Dress", 
+            4: "Coat", 5: "Sandal", 6: "Shirt", 7: "Sneaker", 8: "Bag", 
+            9: "Ankle boot"
+        }
     
     def _load_data(self):
         """Downloads data from source if not present in the root_dir on local"""
@@ -33,14 +40,14 @@ class Fashion_MNIST(VisionDataTemplate):
             root=self.root_dir,
             train=True,
             download=download,
-            transform=ToTensor(),
+            transform=self.transforms,
         )
         
         test_data = datasets.FashionMNIST(
             root=self.root_dir,
             train=False,
             download=download,
-            transform=ToTensor(),
+            transform=self.transforms,
         )
         return [training_data, test_data]
     
