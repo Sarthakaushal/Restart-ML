@@ -31,10 +31,11 @@ class VisionDataTemplate():
             print(f"Shape of X [N, C, H, W]: {X.shape}")
             print(f"Shape of y: {y.shape} {y.dtype}")
             break
-        
+        data_sample_shape = X.shape
         print('\n------------- test Stats  --------------\n')
         for X, y in self.test_dataloader:
             print(f"Shape of X [N, C, H, W]: {X.shape}")
             print(f"Shape of y: {y.shape} {y.dtype}")
             break
         print('\n-------------    END      ---------------\n')
+        return data_sample_shape
