@@ -1,5 +1,5 @@
 # Restart-ML
-A repo containing the fundamentals of deep generative & probabilistic modeling. Follows Volodymyr Kuleshov's course on youtube, most models are discussed in the course.
+A repo containing the fundamentals of different statistical ML & deep generative & probabilistic modeling. Follows Volodymyr Kuleshov's course on youtube, most models are discussed in the course.
 
 ## Directory Structure
 ```plaintext
