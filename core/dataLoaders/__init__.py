@@ -25,7 +25,8 @@ class VisionDataTemplate():
         dataset"""
         pass
     
-    def view_sample_stats(self):
+    def view_sample_stats(self, flattened: bool = False):
+        # TODO: Create logic to change the prints based on flattened!
         print('\n------------- Train Stats --------------\n')
         for X, y in self.train_dataloader:
             print(f"Shape of X [N, C, H, W]: {X.shape}")
