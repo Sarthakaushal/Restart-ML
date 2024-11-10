@@ -161,3 +161,15 @@ cython_debug/
 
 # data direct
 *data
+
+# Pytorch cache
+.pytorch_cache/
+
+# Pytorch model weights
+*.pt
+
+# Research Papers
+Papers
+
+.vscode/
+mlruns/

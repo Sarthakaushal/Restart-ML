@@ -1,0 +1,64 @@
+# create config file for training simple GAN
+# simple_gan:
+#   z_dim: 100
+#   gen_hidden_dim: [2048]
+#   disc_hidden_dim: [2048]
+#   data_dim: 784
+  
+#   # Accelerator
+#   device: mps
+  
+#   # Training params
+#   num_epochs: 100
+
+#   # Mlflow Tracking
+#   tracking: True
+
+#   # Logging Params
+#   output_dir: data/gan_generated_images/
+#   logging_freq: 10
+
+#   #optimizer params
+#   # Todo : Extend the optimizer to include other optimizers
+#   g_optimizer : Adam # or "Adam"
+#   g_learning_rate: 0.0002
+#   g_betas_min: 0.5
+#   g_betas_max: 0.999
+#   d_optimizer : Adam # or "Adam" 
+#   d_learning_rate: 0.0001
+#   d_betas_min: 0.5
+#   d_betas_max: 0.999
+#   disc_train_skip_freq: 4
+
+simple_gan:
+  # Model Params
+  batch_size: 512
+  z_dim: [100,1,1]
+  gen_hidden_dim: [8, 16]
+  disc_hidden_dim: [8, 16]
+  # data_dim: 784
+  
+  # Accelerator
+  device: mps
+  
+  # Training params
+  num_epochs: 101
+
+  # Mlflow Tracking
+  tracking: True
+
+  # Logging Params
+  output_dir: data/gan_generated_images/
+  logging_freq: 10
+  model_save_dir: model_dump/dcgans
+  #optimizer params
+  # Todo : Extend the optimizer to include other optimizers
+  g_optimizer : Adam # or "Adam"
+  g_learning_rate: 0.0002
+  g_betas_min: 0.5
+  g_betas_max: 0.999
+  d_optimizer : Adam # or "Adam"
+  d_learning_rate: 0.0002
+  d_betas_min: 0.5
+  d_betas_max: 0.999
+  disc_train_skip_freq: 1
