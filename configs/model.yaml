@@ -28,10 +28,10 @@ simple_gan:
   g_betas_min: 0.5
   g_betas_max: 0.999
   d_optimizer : Adam # or "Adam"
-  d_learning_rate: 0.0002
+  d_learning_rate: 0.0001
   d_betas_min: 0.5
   d_betas_max: 0.999
-  disc_train_skip_freq: 2
+  disc_train_skip_freq: 3
   # Gradient clipping
   max_grad_norm: 1.0  # Maximum norm of gradients
 
