@@ -1,11 +1,12 @@
 from core.dataLoaders.cifar10 import CIFAR10
+from core.dataLoaders.mnist import MNIST
 import torch, torchvision
 from torch import nn
 import torchvision.transforms as T
 from core.models.GAN import GAN
 import os, time, mlflow
 from core.dataLoaders import VisionDataTemplate
-import yaml
+import yaml, sys
 from tqdm import tqdm
 from core.models.GAN import Generator, Discriminator, ConvGenerator, ConvDiscriminator
 
@@ -39,6 +40,8 @@ def train_gan(gan_model:GAN,
     batch_size = kwargs.get('batch_size')
     z_dim = [batch_size] + z_dim
     output_dir_ = output_dir
+    model_type = kwargs.get('model_type')
+    
     with mlflow.start_run(log_system_metrics=True):
         criterion = nn.BCELoss()
         print("Training Started!! Device: ", device)
@@ -68,69 +71,59 @@ def train_gan(gan_model:GAN,
         len_dataloader = len(dataloader)
         total_disc_loss = 0
         total_gen_loss = 0
-        # for epoch in range(num_epochs):
-        #     disc_loss = 0
-        #     gen_loss = 0
-        # #     id = -1
-        #     for batch_idx, [real_data, labels] in enumerate(
-        #             tqdm(dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")):
-                # print("Iteration: ", batch_idx, "/", len(dataloader))
-                # Training loop
+
         for epoch in range(num_epochs):
             disc_loss = 0
             gen_loss = 0
-            for batch_idx, [real_data, labels] in enumerate(tqdm(dataloader)):
-                d_loss = 0
-                g_loss = 0
-                
+            for batch_idx, [real_data, _] in enumerate(tqdm(dataloader)):
                 batch_size = real_data.shape[0]
                 z_dim[0] = batch_size
-                # print("Iteration: ", batch_idx, "/", len(dataloader))
                 
-                # Create labels with noise for more stable training
-                real_labels = torch.full((batch_size, 1), 0.9, device=device)  # Use 0.9 instead of 1
-                fake_labels = torch.full((batch_size, 1), 0.1, device=device)  # Use 0.1 instead of 0
+                # Create labels
+                real_labels = torch.ones((batch_size, 1), device=device)
+                fake_labels = torch.zeros((batch_size, 1), device=device)
                 
-                ############################
-                # Train Discriminator
-                ############################
+                # -----------------
+                #  Train Generator
+                # -----------------
+                g_optimizer.zero_grad()
+                
+                z = torch.randn(z_dim).to(device)
+                if model_type == 'simple_gan':
+                    z = z.view(z.size()[0], -1)
+                
+                fake_samples = gan_model.gen(z)
+                fake_pred = gan_model.disc(fake_samples)
+                
+                g_loss = criterion(fake_pred, real_labels)
+                g_loss.backward()
+                g_optimizer.step()
+                
+                # ---------------------
+                #  Train Discriminator
+                # ---------------------
                 if batch_idx % disc_train_skip_freq == 0:
                     d_optimizer.zero_grad()
                     
-                    # Train with real
+                    if model_type == 'simple_gan':
+                        real_data = real_data.view(real_data.size(0), -1)
+                    
+                    # Real samples
                     real_pred = gan_model.disc(real_data.to(device))
-                    d_loss_real = criterion(real_pred.view(batch_size, -1), real_labels)
+                    d_loss_real = criterion(real_pred, real_labels)
                     
-                    # Train with fake
-                    z = torch.randn(z_dim).to(device)
-                    fake_samples = gan_model.gen(z)
+                    # Fake samples
                     fake_pred = gan_model.disc(fake_samples.detach())
-                    d_loss_fake = criterion(fake_pred.view(-1, 1)[:fake_labels.size(0)], fake_labels)
+                    d_loss_fake = criterion(fake_pred, fake_labels)
                     
-                    # Combined loss
                     d_loss = (d_loss_real + d_loss_fake) * 0.5
                     d_loss.backward()
                     d_optimizer.step()
                 
-                ############################
-                # Train Generator
-                ############################
-                g_optimizer.zero_grad()
-                
-                # Generate new fake samples
-                z = torch.randn(z_dim).to(device)
-                fake_samples = gan_model.gen(z)
-                fake_pred = gan_model.disc(fake_samples)
-                
-                # Use real labels for generator loss
-                g_loss = criterion(fake_pred.view(batch_size, -1), real_labels)  # Try to fool discriminator
-                g_loss.backward()
-                g_optimizer.step()
-                
-                # Update running losses
+                # Update losses
                 disc_loss += d_loss.item() if batch_idx % disc_train_skip_freq == 0 else 0
                 gen_loss += g_loss.item()
-
+            
             avg_ep_d_loss = disc_loss/(len_dataloader/disc_train_skip_freq)
             avg_ep_g_loss = gen_loss/len_dataloader
             
@@ -150,8 +143,11 @@ def train_gan(gan_model:GAN,
                 # Generate sample images
                 with torch.no_grad():
                     z_test = torch.randn(z_dim).to(device)
+                    if model_type == 'simple_gan':
+                        z_test = z_test.view(z_test.size()[0], -1)
                     fake_samples, _ = gan_model.generator_step(z_test)
                     samples = fake_samples
+                    samples = samples.view(samples.size(0), 1, 28, 28)
                     # Create grid of images
                     grid = torchvision.utils.make_grid(samples, nrow=4, 
                                                        normalize=True)
@@ -189,39 +185,52 @@ if __name__ == "__main__":
     print("z_dim", z_dim)
     
     ## Data Loading
-    transform = T.Compose([
-        T.ToTensor(),
-        T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
-    data_cls = CIFAR10(transforms=transform, batch_size=batch_size)
+    if config.get('simple_gan').get('model_type') == 'simple_gan':
+        transform = T.Compose([
+            T.ToTensor(),
+            T.Normalize((0.5,), (0.5,))
+        ])
+    else:
+        transform = T.Compose([
+            T.ToTensor(),
+            T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
+    if config.get('simple_gan').get('model_type') == 'simple_gan':
+        data_cls = MNIST(transforms=transform, batch_size=batch_size)
+    else:
+        data_cls = CIFAR10(transforms=transform, batch_size=batch_size)
 
     # create data loader
     [train_loader, test_loader] = data_cls.create_loader()
     train_data_sample_shape  = data_cls.view_sample_stats()
     
-    
-    
-    
     data_dim = train_data_sample_shape  # for CIFAR10 (32x32x3 = 3072)
     gen_hidden_dim=config.get('simple_gan').get('gen_hidden_dim')
     disc_hidden_dim=config.get('simple_gan').get('disc_hidden_dim')
-
-    # gan_model = GAN(z_dim,
-    #                 gen_hidden_dim,
-    #                 disc_hidden_dim,
-    #                 data_dim,
-    #                 device='mps',
-    #                 generator=Generator,
-    #                 discriminator=Discriminator)
-    print(z_dim, gen_hidden_dim, disc_hidden_dim, data_dim)
-    gan_model = GAN(z_dim,
-                    gen_hidden_dim,
-                    disc_hidden_dim,
-                    data_dim,
-                    device='mps',
-                    generator=ConvGenerator,
-                    discriminator=ConvDiscriminator)
-    print(gan_model.gen)
+    
+    if config.get('simple_gan').get('model_type') == 'simple_gan':
+        print("Simple GAN Config:")
+        print(z_dim, gen_hidden_dim, disc_hidden_dim, data_dim)
+        gan_model = GAN(z_dim,
+                        gen_hidden_dim,
+                        disc_hidden_dim,
+                        data_dim,
+                        device='mps',
+                        generator=Generator,
+                        discriminator=Discriminator,
+                        model_type='simple_gan')
+    elif config.get('simple_gan').get('model_type') == 'dcgan':
+        print("DCGAN Config:")
+        print(z_dim, gen_hidden_dim, disc_hidden_dim, data_dim)
+        gan_model = GAN(z_dim,
+                        gen_hidden_dim,
+                        disc_hidden_dim,
+                        data_dim,
+                        device='mps',
+                        generator=ConvGenerator,
+                        discriminator=ConvDiscriminator,
+                        model_type='dcgan')
+    # print(gan_model.gen)
     train_gan(gan_model, train_loader, **config.get('simple_gan'))
     
     # save model

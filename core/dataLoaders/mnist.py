@@ -13,12 +13,13 @@ class Conf:
 class MNIST(VisionDataTemplate):
     def __init__(self, 
                 local_dir: str = Conf.Root_data_dir, 
-                transforms = ToTensor()
+                transforms = ToTensor(),
+                batch_size = Conf.Batch_size
                 ) -> None:
         self.name = 'MNIST'
         self.root_dir = local_dir
         self.transforms = transforms
-        self.batch_size = Conf.Batch_size
+        self.batch_size = batch_size
         self.labels = [x for x in range(10)]
         self.label_desc = {x: str(x) for x in range(10)}
         

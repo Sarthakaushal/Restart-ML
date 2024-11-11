@@ -10,14 +10,31 @@ import sys
 class Generator(MlModel):
     def __init__(self, z_dim:int, hidden_dim:List[int], out_dim:int) -> None:
         super(Generator, self).__init__()
-        self.layers = nn.Sequential()
-        for i in range(len(hidden_dim)):
-            self.layers.append(
-                nn.Linear(z_dim if i == 0 else hidden_dim[i-1], hidden_dim[i]))
-            self.layers.append(nn.ReLU())
-        self.layers.append(nn.Linear(hidden_dim[-1], out_dim))
-        self.layers.append(nn.Tanh())
         
+        def block(in_feat, out_feat, normalize=True):
+            layers = [nn.Linear(in_feat, out_feat)]
+            if normalize:
+                layers.append(nn.BatchNorm1d(out_feat, 0.8))
+            layers.append(nn.LeakyReLU(0.2, inplace=True))
+            return layers
+        
+        # Build model using blocks
+        model_layers = []
+        # First block without normalization
+        model_layers.extend(block(z_dim, hidden_dim[0], normalize=False))
+        
+        # Middle blocks with normalization
+        for i in range(len(hidden_dim)-1):
+            model_layers.extend(block(hidden_dim[i], hidden_dim[i+1]))
+        
+        # Output layer
+        model_layers.extend([
+            nn.Linear(hidden_dim[-1], out_dim),
+            nn.Tanh()
+        ])
+        
+        self.layers = nn.Sequential(*model_layers)
+
     def forward(self, x):
         return self.layers(x)
 
@@ -26,7 +43,8 @@ class Discriminator(MlModel):
         super(Discriminator, self).__init__()
         self.layers = nn.Sequential()
         for i in range(len(hidden_dim)):
-            self.layers.append(nn.Linear(inp_dim if i == 0 else hidden_dim[i-1], hidden_dim[i]))
+            self.layers.append(nn.Linear(
+                inp_dim if i == 0 else hidden_dim[i-1], hidden_dim[i]))
             self.layers.append(nn.ReLU())
         self.layers.append(nn.Linear(hidden_dim[-1], 1))
         self.layers.append(nn.Sigmoid())
@@ -116,14 +134,19 @@ class GAN(nn.Module):
                 device:str,
                 generator:MlModel,
                 discriminator:MlModel,
+                model_type:str
                 ):
         super(GAN, self).__init__()
-        
-        self.gen = generator(z_dim[1]).to(device)
+        if model_type == 'simple_gan':
+            self.gen = generator(z_dim[-1]*z_dim[-2], gen_hidden_dim, z_dim[-1]*z_dim[-2]).to(device)
+        elif model_type == 'dcgan':
+            self.gen = generator(z_dim[1]).to(device)
         print("********** GAN - generator **********\n", self.gen)
         self.device = device
-        print("===>",im_dim, disc_hidden_dim)
-        self.disc = discriminator(im_dim, disc_hidden_dim).to(device)
+        if model_type == 'simple_gan':
+            self.disc = discriminator(im_dim[-1]*im_dim[-2], disc_hidden_dim).to(device)
+        elif model_type == 'dcgan':
+            self.disc = discriminator(im_dim, disc_hidden_dim).to(device)
         print("********** GAN - discriminator **********\n", self.disc)
         # initialize weights
         self._init_weights()
@@ -156,6 +179,9 @@ class GAN(nn.Module):
     def discriminator_step(self, real_samples, fake_samples):
         """Get discriminator predictions for both real and fake samples"""
         # print("1. real_samples.shape", real_samples.shape, real_samples.device)
+        if self.model_type == 'simple_gan':
+            real_samples = real_samples.view(real_samples.size(0), -1)
+            print("real_samples.shape", real_samples.shape)
         real_predictions = self.disc.forward(real_samples.to(self.device))
         
         # print("2. fake_samples.shape", fake_samples.shape, fake_samples.device)
