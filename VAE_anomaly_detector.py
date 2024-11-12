@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from core.dataLoaders.mnist import MNIST
 
-training = True
+training = False
 Anomaly_det = True
 
 ## load data loader same as VAE.py
@@ -177,4 +177,8 @@ if Anomaly_det:
         ax.imshow(np.concatenate([x, x_hat], axis=1), cmap='gray')
         ax.axis('off')
     plt.suptitle("Anomalous Samples (Original | Reconstruction)")
-    plt.show()
+    
+    #save the figure
+    plt.savefig('data/vae_generated_images/anomaly_vae_reconstructions_1.png')
+    plt.close()
+    #plt.show()
